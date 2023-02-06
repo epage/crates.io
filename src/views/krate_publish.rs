@@ -25,6 +25,7 @@ pub struct EncodableCrateUpload {
     pub readme_file: Option<String>,
     #[serde(default)]
     pub keywords: EncodableKeywordList,
+    pub rust_version: Option<EncodableRustVersion>,
     #[serde(default)]
     pub categories: EncodableCategoryList,
     pub license: Option<String>,
@@ -42,6 +43,8 @@ pub struct EncodableDependencyName(pub String);
 pub struct EncodableCrateVersion(pub semver::Version);
 #[derive(Debug, Deref)]
 pub struct EncodableCrateVersionReq(pub String);
+#[derive(Debug, Deref, Clone)]
+pub struct EncodableRustVersion(pub String);
 #[derive(Serialize, Debug, Deref, Default)]
 pub struct EncodableKeywordList(pub Vec<EncodableKeyword>);
 #[derive(Serialize, Debug, Deref)]
@@ -170,6 +173,23 @@ impl<'de> Deserialize<'de> for EncodableCrateVersionReq {
             Ok(_) => Ok(EncodableCrateVersionReq(s)),
             Err(..) => {
                 let value = de::Unexpected::Str(&s);
+                let expected = "a valid rust-version";
+                Err(de::Error::invalid_value(value, &expected))
+            }
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for EncodableRustVersion {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<EncodableRustVersion, D::Error> {
+        let s = String::deserialize(d)?;
+        match semver::VersionReq::parse(&s) {
+            // Exclude semver operators like `^` and pre-release identifiers
+            Ok(_) if s.chars().all(|c| c.is_ascii_digit() || c == '.') => {
+                Ok(EncodableRustVersion(s))
+            }
+            Ok(_) | Err(..) => {
+                let value = de::Unexpected::Str(&s);
                 let expected = "a valid version req";
                 Err(de::Error::invalid_value(value, &expected))
             }
@@ -216,6 +236,15 @@ impl Serialize for EncodableCrateVersion {
 }
 
 impl Serialize for EncodableCrateVersionReq {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&(**self).to_string())
+    }
+}
+
+impl Serialize for EncodableRustVersion {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,

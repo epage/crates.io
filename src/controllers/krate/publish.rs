@@ -113,6 +113,7 @@ pub async fn publish(app: AppState, req: BytesRequest) -> AppResult<Json<GoodCra
             let _ = &new_crate;
             let name = new_crate.name;
             let vers = &*new_crate.vers;
+            let rust_version = new_crate.rust_version.as_deref();
             let links = new_crate.links;
             let repo = new_crate.repository;
             let features = new_crate
@@ -193,6 +194,7 @@ pub async fn publish(app: AppState, req: BytesRequest) -> AppResult<Json<GoodCra
                 krate.id,
                 vers,
                 &features,
+                rust_version.map(String::as_str),
                 license,
                 license_file,
                 // Downcast is okay because the file length must be less than the max upload size
